@@ -1,0 +1,240 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Sparkles, Download, RefreshCw, Home } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { useAIDetection } from "@/hooks/useAIDetection";
+import { useHumanization } from "@/hooks/useHumanization";
+import type { DetectionScore } from "@/hooks/useAIDetection";
+
+interface Iteration {
+  text: string;
+  score: DetectionScore;
+  timestamp: Date;
+  round: number;
+}
+
+const Detector = () => {
+  const navigate = useNavigate();
+  const { detectAI, isLoading: isAnalyzing } = useAIDetection();
+  const { humanizeText, isLoading: isHumanizing } = useHumanization();
+  
+  const [inputText, setInputText] = useState("");
+  const [outputText, setOutputText] = useState("");
+  const [currentScore, setCurrentScore] = useState<DetectionScore | null>(null);
+  const [iterations, setIterations] = useState<Iteration[]>([]);
+
+  const analyzeText = async () => {
+    if (!inputText.trim()) {
+      toast.error("Please enter text to analyze");
+      return;
+    }
+
+    const score = await detectAI(inputText);
+    if (score) {
+      setCurrentScore(score);
+      setOutputText(inputText);
+      setIterations([{
+        text: inputText,
+        score,
+        timestamp: new Date(),
+        round: 1
+      }]);
+      toast.success("Analysis complete");
+    }
+  };
+
+  const humanize = async () => {
+    if (!outputText.trim()) {
+      toast.error("No text to humanize");
+      return;
+    }
+
+    const humanizedText = await humanizeText(outputText, currentScore?.aiWritten);
+    if (humanizedText) {
+      // Re-analyze the humanized text
+      const newScore = await detectAI(humanizedText);
+      if (newScore) {
+        setCurrentScore(newScore);
+        setOutputText(humanizedText);
+        setIterations(prev => [...prev, {
+          text: humanizedText,
+          score: newScore,
+          timestamp: new Date(),
+          round: prev.length + 1
+        }]);
+        
+        if (newScore.aiWritten < 20) {
+          toast.success("🎉 Success! AI detection below 20%");
+        } else {
+          toast.success("Humanization complete. Click again to refine further.");
+        }
+      }
+    }
+  };
+
+  const downloadResults = () => {
+    const content = `Miro Write Analysis Report
+=========================
+
+Original Text:
+${iterations[0]?.text || inputText}
+
+Final Text:
+${outputText}
+
+Detection Scores:
+- AI-Written: ${currentScore?.aiWritten}%
+- AI-Refined: ${currentScore?.aiRefined}%
+- Human-Written: ${currentScore?.humanWritten}%
+
+Total Iterations: ${iterations.length}
+`;
+
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "miro-write-report.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Report downloaded");
+  };
+
+  const reset = () => {
+    setInputText("");
+    setOutputText("");
+    setCurrentScore(null);
+    setIterations([]);
+    toast.info("Session reset");
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <header className="border-b border-border">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <Sparkles className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <h1 className="text-xl font-bold">Miro Write</h1>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
+              <Home className="h-4 w-4 mr-2" />
+              Home
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 container mx-auto px-4 py-8">
+        <div className="grid lg:grid-cols-2 gap-6 h-full">
+          {/* Input Panel */}
+          <Card className="p-6 flex flex-col">
+            <h2 className="text-lg font-semibold mb-4">Original Text</h2>
+            <Textarea
+              placeholder="Paste your text here to analyze..."
+              className="flex-1 min-h-[400px] resize-none"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+            />
+            <div className="mt-4 flex gap-2">
+              <Button
+                onClick={analyzeText}
+                disabled={isAnalyzing || !inputText.trim()}
+                className="flex-1"
+              >
+                {isAnalyzing ? "Analyzing..." : "Analyze Text"}
+              </Button>
+              <Button variant="outline" onClick={reset}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
+          </Card>
+
+          {/* Output Panel */}
+          <div className="flex flex-col gap-6">
+            {/* Detection Scores */}
+            {currentScore && (
+              <Card className="p-6">
+                <h2 className="text-lg font-semibold mb-4">Detection Results</h2>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>AI-Written</span>
+                      <span className="font-semibold text-destructive">{currentScore.aiWritten}%</span>
+                    </div>
+                    <Progress value={currentScore.aiWritten} className="bg-muted [&>div]:bg-destructive" />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>AI-Refined</span>
+                      <span className="font-semibold text-warning">{currentScore.aiRefined}%</span>
+                    </div>
+                    <Progress value={currentScore.aiRefined} className="bg-muted [&>div]:bg-warning" />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>Human-Written</span>
+                      <span className="font-semibold text-success">{currentScore.humanWritten}%</span>
+                    </div>
+                    <Progress value={currentScore.humanWritten} className="bg-muted [&>div]:bg-success" />
+                  </div>
+                </div>
+                <div className="mt-4 flex gap-2">
+              <Button
+                onClick={humanize}
+                disabled={isHumanizing}
+                className="flex-1 bg-gradient-to-r from-primary to-accent"
+              >
+                {isHumanizing ? "Humanizing..." : "Humanize Text"}
+              </Button>
+                  <Button variant="outline" onClick={downloadResults}>
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
+              </Card>
+            )}
+
+            {/* Output Text */}
+            <Card className="p-6 flex-1 flex flex-col">
+              <h2 className="text-lg font-semibold mb-4">Refined Output</h2>
+              <Textarea
+                placeholder="Results will appear here..."
+                className="flex-1 min-h-[250px] resize-none"
+                value={outputText}
+                readOnly
+              />
+            </Card>
+
+            {/* Iteration History */}
+            {iterations.length > 0 && (
+              <Card className="p-6">
+                <h2 className="text-lg font-semibold mb-4">Iteration History</h2>
+                <div className="space-y-2">
+                  {iterations.map((iter, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-sm py-2 border-b border-border last:border-0">
+                      <span className="text-muted-foreground">Round {iter.round}</span>
+                      <div className="flex gap-4">
+                        <span className="text-destructive">{iter.score.aiWritten}% AI</span>
+                        <span className="text-success">{iter.score.humanWritten}% Human</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default Detector;
