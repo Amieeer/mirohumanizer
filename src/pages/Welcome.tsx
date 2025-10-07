@@ -61,13 +61,13 @@ const Welcome = () => {
           <div className="space-y-4">
             <Button
               size="lg"
-              onClick={() => navigate("/auth")}
+              onClick={() => navigate("/detector")}
               className="text-lg px-8 py-6 bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
             >
-              Get Started
+              Continue as Guest
             </Button>
             <p className="text-sm text-muted-foreground">
-              Sign up or log in to start analyzing
+              No login required • Start analyzing immediately
             </p>
           </div>
         </div>

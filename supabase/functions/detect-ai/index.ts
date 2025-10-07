@@ -1,11 +1,11 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const MAX_TEXT_LENGTH = 50000;
-
-Deno.serve(async (req) => {
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -13,34 +13,18 @@ Deno.serve(async (req) => {
   try {
     const { text } = await req.json();
     
-    if (!text || typeof text !== 'string') {
+    if (!text || text.trim().length === 0) {
       return new Response(
-        JSON.stringify({ error: 'Text is required and must be a string' }),
+        JSON.stringify({ error: 'Text is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    
-    if (text.trim().length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'Text cannot be empty' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (text.length > MAX_TEXT_LENGTH) {
-      return new Response(
-        JSON.stringify({ error: `Text exceeds maximum length of ${MAX_TEXT_LENGTH} characters` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const sanitizedText = text.replace(/\0/g, '');
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       console.error('LOVABLE_API_KEY not configured');
       return new Response(
-        JSON.stringify({ error: 'Service configuration error' }),
+        JSON.stringify({ error: 'AI service not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -70,7 +54,7 @@ Format: {"aiWritten": 0-100, "aiRefined": 0-100, "humanWritten": 0-100}`;
         model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: sanitizedText }
+          { role: 'user', content: text }
         ],
         temperature: 0.3,
       }),
