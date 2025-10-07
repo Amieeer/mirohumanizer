@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Sparkles, Download, RefreshCw, Home } from "lucide-react";
+import { Sparkles, Download, RefreshCw, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { useAIDetection } from "@/hooks/useAIDetection";
 import { useHumanization } from "@/hooks/useHumanization";
 import type { DetectionScore } from "@/hooks/useAIDetection";
@@ -26,6 +27,16 @@ const Detector = () => {
   const [outputText, setOutputText] = useState("");
   const [currentScore, setCurrentScore] = useState<DetectionScore | null>(null);
   const [iterations, setIterations] = useState<Iteration[]>([]);
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast.error("Error logging out");
+    } else {
+      toast.success("Logged out successfully");
+      navigate("/auth");
+    }
+  };
 
   const analyzeText = async () => {
     if (!inputText.trim()) {
@@ -124,9 +135,9 @@ Total Iterations: ${iterations.length}
               </div>
               <h1 className="text-xl font-bold">Miro Write</h1>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
-              <Home className="h-4 w-4 mr-2" />
-              Home
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
             </Button>
           </div>
         </div>
