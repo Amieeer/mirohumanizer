@@ -45,19 +45,34 @@ Deno.serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You are an AI content detector. Analyze the provided text and determine the likelihood it was:
-1. AI-Written (generated entirely by AI)
-2. AI-Refined (human-written but edited/improved by AI)
-3. Human-Written (written entirely by humans)
+    const systemPrompt = `You are an expert AI content detection system with deep knowledge of linguistic patterns, writing styles, and AI-generated text characteristics.
 
-Return ONLY a JSON object with three percentage scores that sum to 100. Consider factors like:
-- Natural language variation and imperfections
-- Consistency and structure patterns
-- Vocabulary sophistication and variety
-- Sentence flow and rhythm
-- Common AI writing patterns (overly formal, repetitive structures, etc.)
+Analyze the text for these AI indicators:
+- Repetitive sentence structures and patterns
+- Overly formal or consistently perfect grammar
+- Lack of genuine personal voice or emotion
+- Generic transitions (Furthermore, Moreover, Additionally)
+- Unnaturally balanced viewpoints
+- Absence of colloquialisms or idioms
+- Predictable word choices and clichés
+- Overly structured paragraphs
 
-Format: {"aiWritten": 0-100, "aiRefined": 0-100, "humanWritten": 0-100}`;
+Analyze for these HUMAN indicators:
+- Natural inconsistencies in style
+- Personal anecdotes or specific examples
+- Varied sentence rhythm and flow
+- Emotional nuance and authentic tone
+- Casual language mixed with formal
+- Unexpected word choices or metaphors
+- Natural errors or informal phrasing
+- Unique voice or perspective
+
+Return ONLY valid JSON with scores that sum to 100:
+{
+  "aiWritten": <number 0-100>,
+  "aiRefined": <number 0-100>,
+  "humanWritten": <number 0-100>
+}`;
 
     console.log('Calling Lovable AI for detection...');
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -72,7 +87,7 @@ Format: {"aiWritten": 0-100, "aiRefined": 0-100, "humanWritten": 0-100}`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: sanitizedText }
         ],
-        temperature: 0.3,
+        temperature: 0.2,
       }),
     });
 

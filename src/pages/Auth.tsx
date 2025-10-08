@@ -139,17 +139,27 @@ const Auth = () => {
               {isLogin ? "Sign In" : "Sign Up"}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
-            <button
+          <div className="mt-4 space-y-2">
+            <Button
               type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-primary hover:underline"
-              disabled={loading}
+              variant="outline"
+              className="w-full"
+              onClick={() => navigate("/detector")}
             >
-              {isLogin
-                ? "Don't have an account? Sign up"
-                : "Already have an account? Sign in"}
-            </button>
+              Continue as Guest
+            </Button>
+            <div className="text-center text-sm">
+              <button
+                type="button"
+                onClick={() => setIsLogin(!isLogin)}
+                className="text-primary hover:underline"
+                disabled={loading}
+              >
+                {isLogin
+                  ? "Don't have an account? Sign up"
+                  : "Already have an account? Sign in"}
+              </button>
+            </div>
           </div>
         </CardContent>
       </Card>

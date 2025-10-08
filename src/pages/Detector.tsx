@@ -27,6 +27,20 @@ const Detector = () => {
   const [outputText, setOutputText] = useState("");
   const [currentScore, setCurrentScore] = useState<DetectionScore | null>(null);
   const [iterations, setIterations] = useState<Iteration[]>([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    // Check if user is authenticated
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAuthenticated(!!session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -78,10 +92,10 @@ const Detector = () => {
           round: prev.length + 1
         }]);
         
-        if (newScore.aiWritten < 20) {
-          toast.success("🎉 Success! AI detection below 20%");
+        if (newScore.humanWritten >= 80) {
+          toast.success("🎉 Success! Text is 80%+ human!");
         } else {
-          toast.success("Humanization complete. Click again to refine further.");
+          toast.info("Humanization complete. You may refine further if needed.");
         }
       }
     }
@@ -98,9 +112,8 @@ Final Text:
 ${outputText}
 
 Detection Scores:
-- AI-Written: ${currentScore?.aiWritten}%
-- AI-Refined: ${currentScore?.aiRefined}%
-- Human-Written: ${currentScore?.humanWritten}%
+- AI Content: ${currentScore?.aiWritten}%
+- Human Content: ${currentScore?.humanWritten}%
 
 Total Iterations: ${iterations.length}
 `;
@@ -135,10 +148,16 @@ Total Iterations: ${iterations.length}
               </div>
               <h1 className="text-xl font-bold">Miro Write</h1>
             </div>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
+            {isAuthenticated ? (
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            ) : (
+              <Button variant="ghost" size="sm" onClick={() => navigate("/auth")}>
+                Sign In
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -178,21 +197,14 @@ Total Iterations: ${iterations.length}
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between text-sm mb-2">
-                      <span>AI-Written</span>
+                      <span>AI Content</span>
                       <span className="font-semibold text-destructive">{currentScore.aiWritten}%</span>
                     </div>
                     <Progress value={currentScore.aiWritten} className="bg-muted [&>div]:bg-destructive" />
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-2">
-                      <span>AI-Refined</span>
-                      <span className="font-semibold text-warning">{currentScore.aiRefined}%</span>
-                    </div>
-                    <Progress value={currentScore.aiRefined} className="bg-muted [&>div]:bg-warning" />
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Human-Written</span>
+                      <span>Human Content</span>
                       <span className="font-semibold text-success">{currentScore.humanWritten}%</span>
                     </div>
                     <Progress value={currentScore.humanWritten} className="bg-muted [&>div]:bg-success" />
@@ -204,7 +216,7 @@ Total Iterations: ${iterations.length}
                 disabled={isHumanizing}
                 className="flex-1 bg-gradient-to-r from-primary to-accent"
               >
-                {isHumanizing ? "Humanizing..." : "Humanize Text"}
+                {isHumanizing ? "Humanizing (targeting 80%+ human)..." : "Humanize Text"}
               </Button>
                   <Button variant="outline" onClick={downloadResults}>
                     <Download className="h-4 w-4" />
