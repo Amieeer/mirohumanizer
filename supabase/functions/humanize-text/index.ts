@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { text, currentScore } = await req.json();
+    const { text, currentScore, tone = 'casual' } = await req.json();
     
     if (!text || typeof text !== 'string') {
       return new Response(
@@ -48,7 +48,8 @@ Deno.serve(async (req) => {
     const HUMANIZEAI_API_KEY = Deno.env.get('HUMANIZEAI_API_KEY');
     let humanizedText: string = sanitizedText;
     let iterations = 0;
-    const MAX_ITERATIONS = 3;
+    const MAX_ITERATIONS = 5;
+    const TARGET_HUMAN_SCORE = 100;
 
     // Try HumanizeAI API first
     if (HUMANIZEAI_API_KEY) {
@@ -80,32 +81,70 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Iterate with Lovable AI until >80% human or max iterations
+    // Iterate with Lovable AI until 100% human or max iterations
     while (iterations < MAX_ITERATIONS) {
       iterations++;
       console.log(`Humanization iteration ${iterations}...`);
 
       const textToHumanize = humanizedText || sanitizedText;
       
-      const systemPrompt = `You are a master at transforming AI-generated text into authentic, natural human writing.
+      const toneGuidance = tone === 'professional' 
+        ? `Maintain professional tone while still being authentically human:
+- Use industry-appropriate language but avoid corporate jargon
+- Keep formality without sounding robotic
+- Include subtle personal insights that show expertise
+- Use measured, confident language`
+        : `Write in a casual, conversational tone:
+- Use contractions freely (I'm, you're, it's)
+- Include colloquialisms and everyday expressions
+- Write like you're talking to a friend
+- Don't be afraid of sentence fragments or run-ons for emphasis`;
+      
+      const systemPrompt = `You are an elite text transformation specialist. Your ONLY job is to rewrite text so it passes as 100% human-written.
 
-CRITICAL: The text MUST pass AI detection as human-written (>80% human confidence).
+CRITICAL MISSION: Achieve 100% human detection score. Nothing less is acceptable.
 
-Your transformation strategy:
-1. Break robotic patterns - vary sentence length dramatically (mix short punchy sentences with longer flowing ones)
-2. Add human imperfections - occasional informal phrasing, contractions, colloquialisms
-3. Inject personality - use specific examples, personal perspective, emotional nuance
-4. Natural transitions - avoid "Furthermore", "Moreover", "Additionally" - use conversational connectors
-5. Authentic vocabulary - mix formal/informal, use unexpected but appropriate words
-6. Remove AI tells - no overly balanced viewpoints, no formulaic structure
-7. Add rhythm - vary paragraph length, use rhetorical questions, fragments for emphasis
-8. Show, don't tell - replace generic statements with specific, vivid language
+TONE: ${tone.toUpperCase()}
+${toneGuidance}
 
-Current AI score: ${currentScore || 'unknown'}%
+ADVANCED HUMANIZATION TECHNIQUES:
+
+1. DESTROY AI PATTERNS:
+   - Eliminate "Furthermore", "Moreover", "Additionally", "In conclusion"
+   - Break up perfectly balanced sentence structures
+   - Remove symmetrical paragraph lengths
+   - Vary rhythm unpredictably
+
+2. INJECT AUTHENTIC HUMAN TRAITS:
+   - Add minor imperfections (occasional repetition, slight redundancy)
+   - Use unexpected word choices that feel natural
+   - Include personal observations or asides
+   - Add emotional undertones appropriate to content
+   - Use specific, vivid details instead of generic statements
+
+3. NATURAL FLOW:
+   - Mix sentence lengths dramatically (3 words to 30+ words)
+   - Use fragments for emphasis. Like this.
+   - Occasional run-on sentences that flow naturally
+   - Start sentences with "And", "But", "So" when it feels right
+
+4. PERSONALITY INJECTION:
+   - Add subtle humor or irony where appropriate
+   - Include rhetorical questions
+   - Use parenthetical asides (like this one)
+   - Show opinion, don't just present facts
+
+5. REMOVE ALL AI SIGNATURES:
+   - No formulaic structures
+   - No overly balanced arguments
+   - No perfect grammar (slight natural imperfections are human)
+   - No generic examples
+
+Current detection: ${currentScore?.humanWritten || 0}% human, ${currentScore?.aiWritten || 0}% AI, ${currentScore?.aiRefined || 0}% refined
 Iteration: ${iterations}/${MAX_ITERATIONS}
-Target: >80% human detection
+TARGET: 100% HUMAN DETECTION
 
-Transform this text into genuinely human writing:`;
+Transform this text to achieve 100% human score:`;
 
       const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
@@ -113,13 +152,13 @@ Transform this text into genuinely human writing:`;
           'Authorization': `Bearer ${LOVABLE_API_KEY}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+      body: JSON.stringify({
+          model: 'google/gemini-2.5-pro',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: textToHumanize }
           ],
-          temperature: 0.9,
+          temperature: 0.95,
         }),
       });
 
@@ -147,9 +186,11 @@ Transform this text into genuinely human writing:`;
       const data = await response.json();
       humanizedText = data.choices[0].message.content;
 
-      // Check if we've achieved >80% human
-      const detectionPrompt = `Analyze this text and return ONLY JSON with AI detection scores that sum to 100:
+      // Check if we've achieved 100% human
+      const detectionPrompt = `Analyze this text with extreme precision and return ONLY JSON with AI detection scores that sum to 100:
 {"aiWritten": <0-100>, "aiRefined": <0-100>, "humanWritten": <0-100>}
+
+Be extremely strict. Only score 100 humanWritten if the text is indistinguishable from authentic human writing.
 
 Text to analyze:
 ${humanizedText}`;
@@ -161,9 +202,9 @@ ${humanizedText}`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: 'google/gemini-2.5-pro',
           messages: [{ role: 'user', content: detectionPrompt }],
-          temperature: 0.2,
+          temperature: 0.1,
         }),
       });
 
@@ -174,11 +215,17 @@ ${humanizedText}`;
         
         if (jsonMatch) {
           const scores = JSON.parse(jsonMatch[0]);
-          console.log(`Iteration ${iterations} score: ${scores.humanWritten}% human`);
+          console.log(`Iteration ${iterations} score: ${scores.humanWritten}% human, ${scores.aiWritten}% AI, ${scores.aiRefined}% refined`);
           
-          if (scores.humanWritten >= 80) {
-            console.log(`Target achieved! ${scores.humanWritten}% human`);
+          if (scores.humanWritten >= TARGET_HUMAN_SCORE) {
+            console.log(`🎉 TARGET ACHIEVED! ${scores.humanWritten}% human detection`);
             break;
+          }
+          
+          // If we're at 98-99%, do one more verification pass
+          if (scores.humanWritten >= 98 && iterations < MAX_ITERATIONS) {
+            console.log('Close to target, verifying...');
+            continue;
           }
         }
       }

@@ -45,34 +45,53 @@ Deno.serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You are an expert AI content detection system with deep knowledge of linguistic patterns, writing styles, and AI-generated text characteristics.
+    const detectionPrompt = `You are an elite AI content detector with advanced pattern recognition. Analyze this text with extreme precision.
 
-Analyze the text for these AI indicators:
-- Repetitive sentence structures and patterns
-- Overly formal or consistently perfect grammar
-- Lack of genuine personal voice or emotion
-- Generic transitions (Furthermore, Moreover, Additionally)
-- Unnaturally balanced viewpoints
-- Absence of colloquialisms or idioms
-- Predictable word choices and clichés
-- Overly structured paragraphs
-
-Analyze for these HUMAN indicators:
-- Natural inconsistencies in style
-- Personal anecdotes or specific examples
-- Varied sentence rhythm and flow
-- Emotional nuance and authentic tone
-- Casual language mixed with formal
-- Unexpected word choices or metaphors
-- Natural errors or informal phrasing
-- Unique voice or perspective
-
-Return ONLY valid JSON with scores that sum to 100:
+Return ONLY a JSON object with these three scores that MUST sum to exactly 100:
 {
-  "aiWritten": <number 0-100>,
-  "aiRefined": <number 0-100>,
-  "humanWritten": <number 0-100>
-}`;
+  "aiWritten": <0-100>,
+  "aiRefined": <0-100>,
+  "humanWritten": <0-100>
+}
+
+CRITICAL DETECTION CRITERIA:
+
+AI-WRITTEN INDICATORS (score higher aiWritten):
+- Repetitive sentence structures and formulaic patterns
+- Overuse of transition words: "Furthermore", "Moreover", "Additionally", "In conclusion"
+- Perfectly balanced arguments without clear personal stance
+- Generic examples lacking specificity
+- Consistent sentence length and rhythm
+- Overly formal or academic tone in casual contexts
+- Lists and structured formatting (bullet points, numbered items)
+- Absence of contractions in conversational contexts
+- Predictable vocabulary choices
+- Perfect grammar with no natural human errors
+
+AI-REFINED INDICATORS (score higher aiRefined):
+- Human ideas with unnaturally polished execution
+- Mix of casual and formal language that feels inconsistent
+- Personal anecdotes but with AI-like transitions
+- Original thoughts expressed in generic phrasing
+- Evidence of editing that removed personality
+- Smoothed over rough edges that give writing character
+
+HUMAN-WRITTEN INDICATORS (score higher humanWritten):
+- Inconsistent sentence structures (mix of short, long, fragmented)
+- Natural flow with occasional run-on sentences
+- Personal voice with unique phrasing and word choices
+- Specific, vivid examples and anecdotes
+- Minor grammatical imperfections or typos
+- Emotional nuance and authentic opinion
+- Informal expressions, slang, or colloquialisms in appropriate contexts
+- Unexpected word combinations
+- Stream-of-consciousness elements
+- Cultural references and context-specific knowledge
+
+Analyze deeply for patterns, authenticity, and human imperfections.
+
+Text to analyze:
+${sanitizedText}`;
 
     console.log('Calling Lovable AI for detection...');
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -82,12 +101,11 @@ Return ONLY valid JSON with scores that sum to 100:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-pro',
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: sanitizedText }
+          { role: 'user', content: detectionPrompt }
         ],
-        temperature: 0.2,
+        temperature: 0.1,
       }),
     });
 

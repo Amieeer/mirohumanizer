@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Sparkles, Download, RefreshCw, LogOut } from "lucide-react";
+import { Sparkles, Download, RefreshCw, LogOut, Briefcase, Coffee } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAIDetection } from "@/hooks/useAIDetection";
 import { useHumanization } from "@/hooks/useHumanization";
 import type { DetectionScore } from "@/hooks/useAIDetection";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface Iteration {
   text: string;
@@ -28,6 +29,7 @@ const Detector = () => {
   const [currentScore, setCurrentScore] = useState<DetectionScore | null>(null);
   const [iterations, setIterations] = useState<Iteration[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [tone, setTone] = useState<'casual' | 'professional'>('casual');
 
   useEffect(() => {
     // Check if user is authenticated
@@ -78,7 +80,7 @@ const Detector = () => {
       return;
     }
 
-    const humanizedText = await humanizeText(outputText, currentScore?.aiWritten);
+    const humanizedText = await humanizeText(outputText, currentScore, tone);
     if (humanizedText) {
       // Re-analyze the humanized text
       const newScore = await detectAI(humanizedText);
@@ -92,10 +94,12 @@ const Detector = () => {
           round: prev.length + 1
         }]);
         
-        if (newScore.humanWritten >= 80) {
-          toast.success("🎉 Success! Text is 80%+ human!");
+        if (newScore.humanWritten >= 100) {
+          toast.success("🎉 Perfect! Text achieved 100% human detection!");
+        } else if (newScore.humanWritten >= 95) {
+          toast.success(`Great! Text is ${newScore.humanWritten}% human!`);
         } else {
-          toast.info("Humanization complete. You may refine further if needed.");
+          toast.info(`Text is ${newScore.humanWritten}% human. Keep refining for better results.`);
         }
       }
     }
@@ -112,8 +116,9 @@ Final Text:
 ${outputText}
 
 Detection Scores:
-- AI Content: ${currentScore?.aiWritten}%
-- Human Content: ${currentScore?.humanWritten}%
+- AI Written: ${currentScore?.aiWritten}%
+- AI Refined: ${currentScore?.aiRefined}%
+- Human Written: ${currentScore?.humanWritten}%
 
 Total Iterations: ${iterations.length}
 `;
@@ -197,30 +202,60 @@ Total Iterations: ${iterations.length}
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between text-sm mb-2">
-                      <span>AI Content</span>
+                      <span>AI Written</span>
                       <span className="font-semibold text-destructive">{currentScore.aiWritten}%</span>
                     </div>
                     <Progress value={currentScore.aiWritten} className="bg-muted [&>div]:bg-destructive" />
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-2">
-                      <span>Human Content</span>
+                      <span>AI Refined</span>
+                      <span className="font-semibold text-warning">{currentScore.aiRefined}%</span>
+                    </div>
+                    <Progress value={currentScore.aiRefined} className="bg-muted [&>div]:bg-warning" />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>Human Written</span>
                       <span className="font-semibold text-success">{currentScore.humanWritten}%</span>
                     </div>
                     <Progress value={currentScore.humanWritten} className="bg-muted [&>div]:bg-success" />
                   </div>
+                  <div className="pt-2 border-t border-border">
+                    <div className="flex justify-between text-sm font-medium">
+                      <span>Overall AI Detection</span>
+                      <span className="text-destructive">{currentScore.aiWritten + currentScore.aiRefined}%</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-4 flex gap-2">
-              <Button
-                onClick={humanize}
-                disabled={isHumanizing}
-                className="flex-1 bg-gradient-to-r from-primary to-accent"
-              >
-                {isHumanizing ? "Humanizing (targeting 80%+ human)..." : "Humanize Text"}
-              </Button>
-                  <Button variant="outline" onClick={downloadResults}>
-                    <Download className="h-4 w-4" />
-                  </Button>
+
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Writing Tone</label>
+                    <ToggleGroup type="single" value={tone} onValueChange={(value) => value && setTone(value as 'casual' | 'professional')} className="justify-start">
+                      <ToggleGroupItem value="casual" aria-label="Casual tone" className="flex-1">
+                        <Coffee className="h-4 w-4 mr-2" />
+                        Casual
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="professional" aria-label="Professional tone" className="flex-1">
+                        <Briefcase className="h-4 w-4 mr-2" />
+                        Professional
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={humanize}
+                      disabled={isHumanizing}
+                      className="flex-1 bg-gradient-to-r from-primary to-accent"
+                    >
+                      {isHumanizing ? "Humanizing (targeting 100% human)..." : "Humanize Text"}
+                    </Button>
+                    <Button variant="outline" onClick={downloadResults}>
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </Card>
             )}
@@ -244,8 +279,9 @@ Total Iterations: ${iterations.length}
                   {iterations.map((iter, idx) => (
                     <div key={idx} className="flex items-center justify-between text-sm py-2 border-b border-border last:border-0">
                       <span className="text-muted-foreground">Round {iter.round}</span>
-                      <div className="flex gap-4">
+                      <div className="flex gap-3 text-xs">
                         <span className="text-destructive">{iter.score.aiWritten}% AI</span>
+                        <span className="text-warning">{iter.score.aiRefined}% Refined</span>
                         <span className="text-success">{iter.score.humanWritten}% Human</span>
                       </div>
                     </div>
