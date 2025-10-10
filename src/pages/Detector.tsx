@@ -11,7 +11,6 @@ import { useAIDetection } from "@/hooks/useAIDetection";
 import { useHumanization } from "@/hooks/useHumanization";
 import type { DetectionScore } from "@/hooks/useAIDetection";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import type { Session } from "@supabase/supabase-js";
 
 interface Iteration {
   text: string;
@@ -29,52 +28,35 @@ const Detector = () => {
   const [outputText, setOutputText] = useState("");
   const [currentScore, setCurrentScore] = useState<DetectionScore | null>(null);
   const [iterations, setIterations] = useState<Iteration[]>([]);
-  const [session, setSession] = useState<Session | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [tone, setTone] = useState<'casual' | 'professional'>('casual');
 
   useEffect(() => {
-    // Check authentication and redirect if not logged in
+    // Check if user is authenticated
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        toast.error("Please sign in to use the detector");
-        navigate("/auth");
-      } else {
-        setSession(session);
-      }
+      setIsAuthenticated(!!session);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      if (!session) {
-        navigate("/auth");
-      } else {
-        setSession(session);
-      }
+      setIsAuthenticated(!!session);
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, []);
 
   const handleLogout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast.error("Error logging out");
+    } else {
       toast.success("Logged out successfully");
       navigate("/auth");
-    } catch (error) {
-      console.error('Logout error:', error);
-      toast.error("Failed to logout");
     }
   };
 
   const analyzeText = async () => {
     if (!inputText.trim()) {
       toast.error("Please enter text to analyze");
-      return;
-    }
-
-    if (!session) {
-      toast.error("Please sign in to use detection");
-      navigate("/auth");
       return;
     }
 
@@ -98,39 +80,28 @@ const Detector = () => {
       return;
     }
 
-    if (!session) {
-      toast.error("Please sign in to use humanization");
-      navigate("/auth");
-      return;
-    }
-
-    try {
-      const humanizedText = await humanizeText(outputText, currentScore || undefined, tone);
-      if (humanizedText) {
-        // Re-analyze the humanized text
-        const newScore = await detectAI(humanizedText);
-        if (newScore) {
-          setCurrentScore(newScore);
-          setOutputText(humanizedText);
-          setIterations(prev => [...prev, {
-            text: humanizedText,
-            score: newScore,
-            timestamp: new Date(),
-            round: prev.length + 1
-          }]);
-          
-          if (newScore.humanWritten >= 90) {
-            toast.success(`🎉 Excellent! Text is ${newScore.humanWritten}% human!`);
-          } else if (newScore.humanWritten >= 80) {
-            toast.success(`Great! Text is ${newScore.humanWritten}% human!`);
-          } else {
-            toast.info(`Text is ${newScore.humanWritten}% human. Keep refining for better results.`);
-          }
+    const humanizedText = await humanizeText(outputText, currentScore, tone);
+    if (humanizedText) {
+      // Re-analyze the humanized text
+      const newScore = await detectAI(humanizedText);
+      if (newScore) {
+        setCurrentScore(newScore);
+        setOutputText(humanizedText);
+        setIterations(prev => [...prev, {
+          text: humanizedText,
+          score: newScore,
+          timestamp: new Date(),
+          round: prev.length + 1
+        }]);
+        
+        if (newScore.humanWritten >= 100) {
+          toast.success("🎉 Perfect! Text achieved 100% human detection!");
+        } else if (newScore.humanWritten >= 95) {
+          toast.success(`Great! Text is ${newScore.humanWritten}% human!`);
+        } else {
+          toast.info(`Text is ${newScore.humanWritten}% human. Keep refining for better results.`);
         }
       }
-    } catch (error) {
-      console.error('Humanization error:', error);
-      toast.error('Failed to humanize text. Please try again.');
     }
   };
 
@@ -182,10 +153,16 @@ Total Iterations: ${iterations.length}
               </div>
               <h1 className="text-xl font-bold">Miro Write</h1>
             </div>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
+            {isAuthenticated ? (
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            ) : (
+              <Button variant="ghost" size="sm" onClick={() => navigate("/auth")}>
+                Sign In
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -273,7 +250,7 @@ Total Iterations: ${iterations.length}
                       disabled={isHumanizing}
                       className="flex-1 bg-gradient-to-r from-primary to-accent"
                     >
-                      {isHumanizing ? "Humanizing (targeting 90%+ human)..." : "Humanize Text (Target: 90%+ Human)"}
+                      {isHumanizing ? "Humanizing (targeting 100% human)..." : "Humanize Text"}
                     </Button>
                     <Button variant="outline" onClick={downloadResults}>
                       <Download className="h-4 w-4" />

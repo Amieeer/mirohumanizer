@@ -48,8 +48,8 @@ Deno.serve(async (req) => {
     const HUMANIZEAI_API_KEY = Deno.env.get('HUMANIZEAI_API_KEY');
     let humanizedText: string = sanitizedText;
     let iterations = 0;
-    const MAX_ITERATIONS = 3;
-    const TARGET_HUMAN_SCORE = 90; // Target 90% for better performance/reliability balance
+    const MAX_ITERATIONS = 5;
+    const TARGET_HUMAN_SCORE = 100;
 
     // Try HumanizeAI API first
     if (HUMANIZEAI_API_KEY) {
@@ -100,9 +100,9 @@ Deno.serve(async (req) => {
 - Write like you're talking to a friend
 - Don't be afraid of sentence fragments or run-ons for emphasis`;
       
-      const systemPrompt = `You are an elite text transformation specialist. Your job is to rewrite text so it reads as naturally human-written.
+      const systemPrompt = `You are an elite text transformation specialist. Your ONLY job is to rewrite text so it passes as 100% human-written.
 
-CRITICAL MISSION: Achieve at least 90% human detection score with high consistency.
+CRITICAL MISSION: Achieve 100% human detection score. Nothing less is acceptable.
 
 TONE: ${tone.toUpperCase()}
 ${toneGuidance}
@@ -142,9 +142,9 @@ ADVANCED HUMANIZATION TECHNIQUES:
 
 Current detection: ${currentScore?.humanWritten || 0}% human, ${currentScore?.aiWritten || 0}% AI, ${currentScore?.aiRefined || 0}% refined
 Iteration: ${iterations}/${MAX_ITERATIONS}
-TARGET: 90%+ HUMAN DETECTION
+TARGET: 100% HUMAN DETECTION
 
-Transform this text to achieve 90%+ human score while maintaining quality:`;
+Transform this text to achieve 100% human score:`;
 
       const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
@@ -209,34 +209,25 @@ ${humanizedText}`;
       });
 
       if (detectionResponse.ok) {
-        try {
-          const detectionData = await detectionResponse.json();
-          const detectionText = detectionData.choices[0]?.message?.content;
+        const detectionData = await detectionResponse.json();
+        const detectionText = detectionData.choices[0].message.content;
+        const jsonMatch = detectionText.match(/\{[^}]+\}/);
+        
+        if (jsonMatch) {
+          const scores = JSON.parse(jsonMatch[0]);
+          console.log(`Iteration ${iterations} score: ${scores.humanWritten}% human, ${scores.aiWritten}% AI, ${scores.aiRefined}% refined`);
           
-          if (!detectionText) {
-            console.warn('No detection text received, continuing iteration');
+          if (scores.humanWritten >= TARGET_HUMAN_SCORE) {
+            console.log(`🎉 TARGET ACHIEVED! ${scores.humanWritten}% human detection`);
+            break;
+          }
+          
+          // If we're at 98-99%, do one more verification pass
+          if (scores.humanWritten >= 98 && iterations < MAX_ITERATIONS) {
+            console.log('Close to target, verifying...');
             continue;
           }
-          
-          const jsonMatch = detectionText.match(/\{[^}]+\}/);
-          
-          if (jsonMatch) {
-            const scores = JSON.parse(jsonMatch[0]);
-            console.log(`Iteration ${iterations} score: ${scores.humanWritten}% human, ${scores.aiWritten}% AI, ${scores.aiRefined}% refined`);
-            
-            if (scores.humanWritten >= TARGET_HUMAN_SCORE) {
-              console.log(`🎉 TARGET ACHIEVED! ${scores.humanWritten}% human detection`);
-              break;
-            }
-          } else {
-            console.warn('No JSON found in detection response, continuing iteration');
-          }
-        } catch (parseError) {
-          console.error('Error parsing detection response:', parseError);
-          // Continue with next iteration rather than failing
         }
-      } else {
-        console.warn('Detection request failed, continuing with next iteration');
       }
 
       if (iterations >= MAX_ITERATIONS) {
