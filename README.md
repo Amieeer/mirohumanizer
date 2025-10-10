@@ -307,15 +307,7 @@ Configured via Lovable Cloud secrets management:
   - Iteration progress tracking
   - Performance metrics
 
-## 🚦 Rate Limits
 
-Lovable AI has workspace-level rate limits:
-- **Free tier**: Limited requests per minute
-- **Paid tier**: Higher rate limits
-- **Error Handling:**
-  - 429 errors: "Rate limit exceeded. Please try again later."
-  - 402 errors: "AI credits depleted. Please add credits to continue."
-- All errors surface to user with friendly messages
 
 ## 🔄 Development Workflow
 
@@ -394,7 +386,7 @@ Lovable AI has workspace-level rate limits:
 
 ## 📄 License
 
-This project is built with Lovable and uses the following technologies:
+This project uses the following technologies:
 - React (MIT License)
 - Tailwind CSS (MIT License)
 - Supabase (Apache 2.0 License)
@@ -410,8 +402,6 @@ This project is built with Lovable and uses the following technologies:
 **"Rate limit exceeded"**
 - Solution: Wait a few minutes and try again, or upgrade plan
 
-**"AI credits depleted"**
-- Solution: Add credits to your Lovable workspace
 
 **"Failed to humanize text"**
 - Solution: Check console logs, ensure text is < 50,000 characters
