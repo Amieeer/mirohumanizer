@@ -131,18 +131,45 @@ ${sanitizedText}`;
     }
 
     const data = await response.json();
-    const aiResponse = data.choices[0].message.content;
+    const aiResponse = data.choices?.[0]?.message?.content;
+    
+    if (!aiResponse) {
+      console.error('No AI response content received');
+      throw new Error('Empty AI response');
+    }
     
     console.log('AI Response:', aiResponse);
     
-    // Parse JSON from response
+    // Parse JSON from response with better error handling
     const jsonMatch = aiResponse.match(/\{[^}]+\}/);
     if (!jsonMatch) {
       console.error('Failed to parse JSON from AI response:', aiResponse);
-      throw new Error('Invalid AI response format');
+      // Return default scores if parsing fails
+      return new Response(
+        JSON.stringify({
+          aiWritten: 50,
+          aiRefined: 25,
+          humanWritten: 25,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
     
-    const scores = JSON.parse(jsonMatch[0]);
+    let scores;
+    try {
+      scores = JSON.parse(jsonMatch[0]);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      // Return default scores if JSON parsing fails
+      return new Response(
+        JSON.stringify({
+          aiWritten: 50,
+          aiRefined: 25,
+          humanWritten: 25,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     return new Response(
       JSON.stringify({

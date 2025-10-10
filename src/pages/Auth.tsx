@@ -140,14 +140,6 @@ const Auth = () => {
             </Button>
           </form>
           <div className="mt-4 space-y-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => navigate("/detector")}
-            >
-              Continue as Guest
-            </Button>
             <div className="text-center text-sm">
               <button
                 type="button"
