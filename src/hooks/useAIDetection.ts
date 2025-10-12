@@ -21,7 +21,14 @@ export const useAIDetection = () => {
 
       if (error) {
         console.error('Detection error:', error);
-        toast.error(error.message || 'Failed to analyze text');
+        
+        if (error.message?.includes('429')) {
+          toast.error('Rate limit exceeded. Please try again in a moment.');
+        } else if (error.message?.includes('402')) {
+          toast.error('AI credits depleted. Please add credits to continue.');
+        } else {
+          toast.error(error.message || 'Failed to analyze text');
+        }
         return null;
       }
 

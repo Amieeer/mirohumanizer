@@ -20,7 +20,14 @@ export const useHumanization = () => {
 
       if (error) {
         console.error('Humanization error:', error);
-        toast.error(error.message || 'Failed to humanize text');
+        
+        if (error.message?.includes('429')) {
+          toast.error('Rate limit exceeded. Please try again in a moment.');
+        } else if (error.message?.includes('402')) {
+          toast.error('AI credits depleted. Please add credits to continue.');
+        } else {
+          toast.error(error.message || 'Failed to humanize text');
+        }
         return null;
       }
 

@@ -48,8 +48,8 @@ Deno.serve(async (req) => {
     const HUMANIZEAI_API_KEY = Deno.env.get('HUMANIZEAI_API_KEY');
     let humanizedText: string = sanitizedText;
     let iterations = 0;
-    const MAX_ITERATIONS = 5;
-    const TARGET_HUMAN_SCORE = 100;
+    const MAX_ITERATIONS = 3; // Reduced for better performance
+    const TARGET_HUMAN_SCORE = 90; // 90% is optimal balance of quality and reliability
 
     // Try HumanizeAI API first
     if (HUMANIZEAI_API_KEY) {
@@ -100,9 +100,9 @@ Deno.serve(async (req) => {
 - Write like you're talking to a friend
 - Don't be afraid of sentence fragments or run-ons for emphasis`;
       
-      const systemPrompt = `You are an elite text transformation specialist. Your ONLY job is to rewrite text so it passes as 100% human-written.
+      const systemPrompt = `You are an elite text transformation specialist. Your ONLY job is to rewrite text so it reads as naturally human-written.
 
-CRITICAL MISSION: Achieve 100% human detection score. Nothing less is acceptable.
+CRITICAL MISSION: Achieve 90%+ human detection score for optimal quality and reliability.
 
 TONE: ${tone.toUpperCase()}
 ${toneGuidance}
@@ -142,9 +142,9 @@ ADVANCED HUMANIZATION TECHNIQUES:
 
 Current detection: ${currentScore?.humanWritten || 0}% human, ${currentScore?.aiWritten || 0}% AI, ${currentScore?.aiRefined || 0}% refined
 Iteration: ${iterations}/${MAX_ITERATIONS}
-TARGET: 100% HUMAN DETECTION
+TARGET: 90%+ HUMAN DETECTION
 
-Transform this text to achieve 100% human score:`;
+Transform this text to achieve natural, human-like quality:`;
 
       const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
@@ -187,47 +187,52 @@ Transform this text to achieve 100% human score:`;
       humanizedText = data.choices[0].message.content;
 
       // Check if we've achieved 100% human
-      const detectionPrompt = `Analyze this text with extreme precision and return ONLY JSON with AI detection scores that sum to 100:
+      const detectionPrompt = `Analyze this text with precision and return ONLY JSON with AI detection scores that sum to 100:
 {"aiWritten": <0-100>, "aiRefined": <0-100>, "humanWritten": <0-100>}
 
-Be extremely strict. Only score 100 humanWritten if the text is indistinguishable from authentic human writing.
+Be accurate and fair. Score 90%+ humanWritten if the text reads naturally and authentically.
 
 Text to analyze:
 ${humanizedText}`;
 
-      const detectionResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-pro',
-          messages: [{ role: 'user', content: detectionPrompt }],
-          temperature: 0.1,
-        }),
-      });
+      try {
+        const detectionResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-pro',
+            messages: [{ role: 'user', content: detectionPrompt }],
+            temperature: 0.1,
+          }),
+        });
 
-      if (detectionResponse.ok) {
-        const detectionData = await detectionResponse.json();
-        const detectionText = detectionData.choices[0].message.content;
-        const jsonMatch = detectionText.match(/\{[^}]+\}/);
-        
-        if (jsonMatch) {
-          const scores = JSON.parse(jsonMatch[0]);
-          console.log(`Iteration ${iterations} score: ${scores.humanWritten}% human, ${scores.aiWritten}% AI, ${scores.aiRefined}% refined`);
+        if (detectionResponse.ok) {
+          const detectionData = await detectionResponse.json();
+          const detectionText = detectionData.choices[0]?.message?.content || '';
+          const jsonMatch = detectionText.match(/\{[^}]+\}/);
           
-          if (scores.humanWritten >= TARGET_HUMAN_SCORE) {
-            console.log(`🎉 TARGET ACHIEVED! ${scores.humanWritten}% human detection`);
-            break;
+          if (jsonMatch) {
+            try {
+              const scores = JSON.parse(jsonMatch[0]);
+              console.log(`Iteration ${iterations} score: ${scores.humanWritten}% human, ${scores.aiWritten}% AI, ${scores.aiRefined}% refined`);
+              
+              if (scores.humanWritten >= TARGET_HUMAN_SCORE) {
+                console.log(`🎉 TARGET ACHIEVED! ${scores.humanWritten}% human detection`);
+                break;
+              }
+            } catch (parseError) {
+              console.error('Error parsing detection scores:', parseError);
+            }
           }
-          
-          // If we're at 98-99%, do one more verification pass
-          if (scores.humanWritten >= 98 && iterations < MAX_ITERATIONS) {
-            console.log('Close to target, verifying...');
-            continue;
-          }
+        } else {
+          console.warn('Detection check failed, continuing iteration...');
         }
+      } catch (detectionError) {
+        console.error('Error during detection check:', detectionError);
+        // Continue iteration even if detection fails
       }
 
       if (iterations >= MAX_ITERATIONS) {

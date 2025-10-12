@@ -135,20 +135,32 @@ ${sanitizedText}`;
     
     console.log('AI Response:', aiResponse);
     
-    // Parse JSON from response
-    const jsonMatch = aiResponse.match(/\{[^}]+\}/);
-    if (!jsonMatch) {
-      console.error('Failed to parse JSON from AI response:', aiResponse);
-      throw new Error('Invalid AI response format');
-    }
+    // Parse JSON with fallback to default scores
+    let scores = { aiWritten: 50, aiRefined: 25, humanWritten: 25 }; // Default fallback
     
-    const scores = JSON.parse(jsonMatch[0]);
+    try {
+      const jsonMatch = aiResponse.match(/\{[^}]+\}/);
+      if (jsonMatch) {
+        const parsedScores = JSON.parse(jsonMatch[0]);
+        // Validate scores sum to 100
+        const total = parsedScores.aiWritten + parsedScores.aiRefined + parsedScores.humanWritten;
+        if (total === 100) {
+          scores = parsedScores;
+        } else {
+          console.warn('Scores do not sum to 100, using defaults');
+        }
+      } else {
+        console.warn('No JSON found in response, using default scores');
+      }
+    } catch (error) {
+      console.error('Error parsing AI response, using default scores:', error);
+    }
     
     return new Response(
       JSON.stringify({
-        aiWritten: scores.aiWritten || 0,
-        aiRefined: scores.aiRefined || 0,
-        humanWritten: scores.humanWritten || 0,
+        aiWritten: scores.aiWritten,
+        aiRefined: scores.aiRefined,
+        humanWritten: scores.humanWritten,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

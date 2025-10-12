@@ -29,34 +29,58 @@ const Detector = () => {
   const [currentScore, setCurrentScore] = useState<DetectionScore | null>(null);
   const [iterations, setIterations] = useState<Iteration[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
   const [tone, setTone] = useState<'casual' | 'professional'>('casual');
 
   useEffect(() => {
     // Check if user is authenticated
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsAuthenticated(!!session);
+      setAuthLoading(false);
+      
+      if (!session) {
+        navigate("/auth");
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setIsAuthenticated(!!session);
+      
+      if (!session) {
+        navigate("/auth");
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [navigate]);
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error("Error logging out");
-    } else {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
       toast.success("Logged out successfully");
       navigate("/auth");
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error("Error logging out");
     }
   };
 
   const analyzeText = async () => {
+    if (!isAuthenticated) {
+      toast.error("Please sign in to use the detector");
+      navigate("/auth");
+      return;
+    }
+    
     if (!inputText.trim()) {
       toast.error("Please enter text to analyze");
+      return;
+    }
+
+    if (inputText.length > 50000) {
+      toast.error("Text exceeds maximum length of 50,000 characters");
       return;
     }
 
@@ -75,6 +99,12 @@ const Detector = () => {
   };
 
   const humanize = async () => {
+    if (!isAuthenticated) {
+      toast.error("Please sign in to use the humanizer");
+      navigate("/auth");
+      return;
+    }
+    
     if (!outputText.trim()) {
       toast.error("No text to humanize");
       return;
@@ -94,12 +124,12 @@ const Detector = () => {
           round: prev.length + 1
         }]);
         
-        if (newScore.humanWritten >= 100) {
-          toast.success("🎉 Perfect! Text achieved 100% human detection!");
-        } else if (newScore.humanWritten >= 95) {
-          toast.success(`Great! Text is ${newScore.humanWritten}% human!`);
+        if (newScore.humanWritten >= 90) {
+          toast.success(`🎉 Excellent! Text is ${newScore.humanWritten}% human!`);
+        } else if (newScore.humanWritten >= 80) {
+          toast.success(`Great progress! Text is ${newScore.humanWritten}% human.`);
         } else {
-          toast.info(`Text is ${newScore.humanWritten}% human. Keep refining for better results.`);
+          toast.info(`Text is ${newScore.humanWritten}% human. Continue refining for better results.`);
         }
       }
     }
@@ -140,6 +170,17 @@ Total Iterations: ${iterations.length}
     setIterations([]);
     toast.info("Session reset");
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -182,8 +223,9 @@ Total Iterations: ${iterations.length}
             <div className="mt-4 flex gap-2">
               <Button
                 onClick={analyzeText}
-                disabled={isAnalyzing || !inputText.trim()}
+                disabled={isAnalyzing || !inputText.trim() || !isAuthenticated}
                 className="flex-1"
+                aria-label="Analyze text for AI detection"
               >
                 {isAnalyzing ? "Analyzing..." : "Analyze Text"}
               </Button>
@@ -247,10 +289,11 @@ Total Iterations: ${iterations.length}
                   <div className="flex gap-2">
                     <Button
                       onClick={humanize}
-                      disabled={isHumanizing}
+                      disabled={isHumanizing || !isAuthenticated}
                       className="flex-1 bg-gradient-to-r from-primary to-accent"
+                      aria-label="Humanize text to sound more natural"
                     >
-                      {isHumanizing ? "Humanizing (targeting 100% human)..." : "Humanize Text"}
+                      {isHumanizing ? "Humanizing (targeting 90%+ human)..." : "Humanize Text"}
                     </Button>
                     <Button variant="outline" onClick={downloadResults}>
                       <Download className="h-4 w-4" />

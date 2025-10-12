@@ -1,6 +1,7 @@
 # Miro Humanizer - AI Content Detection & Humanization Platform
 
 A sophisticated web application that detects AI-generated content and transforms it into natural, human-like text while maintaining the original meaning and quality.
+
 ## 🚀 Features
 
 - **AI Content Detection**: Advanced detection using Google Gemini 2.5 Pro model
@@ -10,7 +11,7 @@ A sophisticated web application that detects AI-generated content and transforms
 - **Secure Authentication**: Built-in user authentication and data protection
 - **Real-time Analysis**: Instant feedback on content authenticity
 
-- ## 🏗️ Technology Stack
+## 🏗️ Technology Stack
 
 - **Frontend**: React 18, TypeScript, Vite
 - **UI Framework**: Tailwind CSS, shadcn-ui components
@@ -56,18 +57,22 @@ The application will be available at `http://localhost:5173`
 - Row-Level Security (RLS) on all database tables
 - Secure session management with automatic token refresh
 - **No guest access** - authentication required for all features
+- **Leaked password protection** enabled (checks against breach databases)
 
 ### Data Protection
 - All user data is isolated via RLS policies
 - API call logs are private to each user
 - Documents and iterations require authentication
-- Leaked password protection enabled
+- **Audit trail protection** - logs and iterations cannot be modified or deleted
+- **Profile protection** - user profiles cannot be deleted
 
 ### Security Best Practices
 - No sensitive data stored in client-side code
 - All API calls authenticated via Supabase JWT
 - Edge functions verify JWT tokens by default
 - Encrypted data transmission (HTTPS)
+- Input validation on both client and server
+- Rate limit handling with user feedback
 
 ## 📡 API Endpoints (Edge Functions)
 
@@ -100,7 +105,7 @@ Analyzes text to determine AI vs human authorship.
 **Error Handling:**
 - Returns default scores on AI API failures
 - Validates response structure before parsing
-- Logs all errors for debugging
+- Comprehensive logging for debugging
 
 ### 2. Humanize Text (`/functions/v1/humanize-text`)
 Transforms AI-detected text into natural, human-like content.
@@ -162,6 +167,7 @@ User profile information linked to authentication.
 **RLS Policies:**
 - Users can only access their own profile
 - Prevents profile enumeration
+- Profiles cannot be deleted by users (data integrity)
 
 #### `documents`
 Stores analyzed and humanized documents.
@@ -198,7 +204,7 @@ Tracks humanization iteration history.
 
 **RLS Policies:**
 - Users can view/insert their own iterations
-- No updates or deletes allowed (audit trail)
+- **No updates or deletes allowed** (immutable audit trail)
 - `user_id` is NOT NULL
 
 #### `api_call_logs`
@@ -218,7 +224,7 @@ Logs API interactions for debugging and monitoring.
 **RLS Policies:**
 - Users can only view logs for their own documents
 - System can insert logs (for edge functions)
-- No updates or deletes (audit integrity)
+- **No updates or deletes** (immutable audit integrity)
 
 ### Security Improvements Applied
 
@@ -228,6 +234,8 @@ Logs API interactions for debugging and monitoring.
 3. ✅ Iterations with NULL user_id blocked
 4. ✅ Leaked password protection enabled
 5. ✅ All tables enforce user ownership
+6. ✅ Audit trails protected (no modifications/deletions)
+7. ✅ Profile deletion prevented
 
 ## 🎨 UI Components
 
@@ -238,6 +246,8 @@ Built with shadcn-ui for consistency and accessibility:
 - Accessible form controls and buttons
 - Toast notifications for user feedback
 - Progress bars for detection visualization
+- ARIA labels for screen readers
+- Loading states during operations
 
 ## 🔑 Environment Variables
 
@@ -277,6 +287,7 @@ Configured via Lovable Cloud secrets management:
 3. Fallback scores prevent failed responses
 4. Graceful error handling ensures consistent outputs
 5. Better JSON parsing with error recovery
+6. Optimized AI prompts for better results
 
 ## 🐛 Error Handling
 
@@ -287,6 +298,8 @@ Configured via Lovable Cloud secrets management:
 - Loading states during async operations
 - Toast notifications for all operations
 - Authentication checks before API calls
+- Rate limit error handling (429)
+- Credit depletion handling (402)
 
 ### Server-Side (Edge Functions)
 - **Input Validation:**
@@ -306,8 +319,6 @@ Configured via Lovable Cloud secrets management:
   - Comprehensive error logging
   - Iteration progress tracking
   - Performance metrics
-
-
 
 ## 🔄 Development Workflow
 
@@ -334,6 +345,8 @@ Configured via Lovable Cloud secrets management:
 3. Iterations require user ownership (no NULL user_id)
 4. Leaked password protection enabled
 5. Authentication required for all features
+6. Audit trails protected (immutable logs and iterations)
+7. Profile deletion prevented
 
 ### 🔒 Security Best Practices
 - Never expose `SUPABASE_SERVICE_ROLE_KEY` in client code
@@ -342,6 +355,8 @@ Configured via Lovable Cloud secrets management:
 - No client-side storage of sensitive information
 - HTTPS enforced for all communications
 - Passwords checked against breach databases
+- Input validation on both client and server
+- Comprehensive error logging without exposing secrets
 
 ## 🧪 Testing Checklist
 
@@ -361,12 +376,21 @@ Configured via Lovable Cloud secrets management:
 - ✅ RLS policies enforce data isolation
 - ✅ Leaked password protection active
 - ✅ No guest access allowed
+- ✅ Audit trails cannot be modified
+- ✅ Profiles cannot be deleted
 
 ### Performance Tests
 - ✅ Detection completes in < 3 seconds
 - ✅ Humanization completes in < 15 seconds
 - ✅ No timeouts or crashes
 - ✅ Graceful error handling
+- ✅ Fallback responses work correctly
+
+### Accessibility Tests
+- ✅ ARIA labels present on interactive elements
+- ✅ Keyboard navigation works
+- ✅ Loading states provide feedback
+- ✅ Error messages are clear and actionable
 
 ## 🤝 Contributing
 
@@ -383,6 +407,7 @@ Configured via Lovable Cloud secrets management:
 - Validate all user inputs
 - Handle errors gracefully
 - Log security-relevant events
+- Test authentication flows
 
 ## 📄 License
 
@@ -402,6 +427,8 @@ This project uses the following technologies:
 **"Rate limit exceeded"**
 - Solution: Wait a few minutes and try again, or upgrade plan
 
+**"AI credits depleted"**
+- Solution: Add credits to your Lovable workspace
 
 **"Failed to humanize text"**
 - Solution: Check console logs, ensure text is < 50,000 characters
