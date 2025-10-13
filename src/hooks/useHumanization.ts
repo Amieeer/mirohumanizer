@@ -9,7 +9,7 @@ export const useHumanization = () => {
   const humanizeText = async (
     text: string, 
     currentScore?: DetectionScore, 
-    tone?: 'casual' | 'professional'
+    tone?: 'casual' | 'professional' | 'preserve'
   ): Promise<string | null> => {
     setIsLoading(true);
     

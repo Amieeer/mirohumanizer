@@ -11,6 +11,7 @@ import { useAIDetection } from "@/hooks/useAIDetection";
 import { useHumanization } from "@/hooks/useHumanization";
 import type { DetectionScore } from "@/hooks/useAIDetection";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Palette } from "lucide-react";
 
 interface Iteration {
   text: string;
@@ -30,7 +31,7 @@ const Detector = () => {
   const [iterations, setIterations] = useState<Iteration[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
-  const [tone, setTone] = useState<'casual' | 'professional'>('casual');
+  const [tone, setTone] = useState<'casual' | 'professional' | 'preserve'>('casual');
 
   useEffect(() => {
     // Check if user is authenticated
@@ -274,7 +275,7 @@ Total Iterations: ${iterations.length}
                 <div className="mt-4 space-y-3">
                   <div>
                     <label className="text-sm font-medium mb-2 block">Writing Tone</label>
-                    <ToggleGroup type="single" value={tone} onValueChange={(value) => value && setTone(value as 'casual' | 'professional')} className="justify-start">
+                    <ToggleGroup type="single" value={tone} onValueChange={(value) => value && setTone(value as 'casual' | 'professional' | 'preserve')} className="justify-start gap-2">
                       <ToggleGroupItem value="casual" aria-label="Casual tone" className="flex-1">
                         <Coffee className="h-4 w-4 mr-2" />
                         Casual
@@ -282,6 +283,10 @@ Total Iterations: ${iterations.length}
                       <ToggleGroupItem value="professional" aria-label="Professional tone" className="flex-1">
                         <Briefcase className="h-4 w-4 mr-2" />
                         Professional
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="preserve" aria-label="Preserve original tone" className="flex-1">
+                        <Palette className="h-4 w-4 mr-2" />
+                        Preserve
                       </ToggleGroupItem>
                     </ToggleGroup>
                   </div>

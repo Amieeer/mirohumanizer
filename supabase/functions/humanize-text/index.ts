@@ -11,7 +11,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { text, currentScore, tone = 'casual' } = await req.json();
+    const { text, currentScore, tone = 'casual' } = await req.json() as { 
+      text: string; 
+      currentScore?: { aiWritten: number; aiRefined: number; humanWritten: number }; 
+      tone?: 'casual' | 'professional' | 'preserve' 
+    };
     
     if (!text || typeof text !== 'string') {
       return new Response(
@@ -45,40 +49,70 @@ Deno.serve(async (req) => {
       );
     }
 
-    const HUMANIZEAI_API_KEY = Deno.env.get('HUMANIZEAI_API_KEY');
+    const ZEROGPT_API_KEY = Deno.env.get('ZEROGPT_API_KEY');
     let humanizedText: string = sanitizedText;
     let iterations = 0;
-    const MAX_ITERATIONS = 3; // Reduced for better performance
-    const TARGET_HUMAN_SCORE = 90; // 90% is optimal balance of quality and reliability
+    const MAX_ITERATIONS = 3;
+    const TARGET_HUMAN_SCORE = 90;
 
-    // Try HumanizeAI API first
-    if (HUMANIZEAI_API_KEY) {
-      try {
-        console.log('Trying HumanizeAI API...');
-        const humanizeResponse = await fetch('https://humanizeai.pro/api/humanize', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${HUMANIZEAI_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: sanitizedText,
-            mode: 'ultra'
-          }),
-        });
-
-        if (humanizeResponse.ok) {
-          const humanizeData = await humanizeResponse.json();
-          humanizedText = humanizeData.humanizedText || humanizeData.text || humanizeData.result;
-          console.log('HumanizeAI API successful');
-        } else {
-          console.log('HumanizeAI API failed, falling back to Lovable AI');
-          throw new Error('HumanizeAI API failed');
+    // Helper function for ZeroGPT API with retry logic
+    async function callZeroGPT(textToCheck: string, retries = 2): Promise<string | null> {
+      if (!ZEROGPT_API_KEY) return null;
+      
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          console.log(`Calling ZeroGPT API (attempt ${attempt + 1}/${retries + 1})...`);
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+          
+          const response = await fetch('https://api.zerogpt.com/api/v1/humanize', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${ZEROGPT_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              text: textToCheck,
+              mode: 'advanced'
+            }),
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            const data = await response.json();
+            const result = data.humanized_text || data.text || data.result;
+            if (result && typeof result === 'string' && result.trim().length > 0) {
+              console.log('ZeroGPT API successful');
+              return result;
+            }
+          } else if (response.status === 429) {
+            console.warn('ZeroGPT rate limited, will retry...');
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+            continue;
+          } else {
+            console.warn(`ZeroGPT API returned status ${response.status}`);
+          }
+        } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') {
+            console.warn('ZeroGPT API timeout');
+          } else {
+            console.error('ZeroGPT API error:', error);
+          }
+          if (attempt < retries) {
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+          }
         }
-      } catch (error) {
-        console.error('HumanizeAI error:', error);
-        humanizedText = sanitizedText;
       }
+      return null;
+    }
+
+    // Try ZeroGPT API first for enhanced humanization
+    const zeroGptResult = await callZeroGPT(sanitizedText);
+    if (zeroGptResult) {
+      humanizedText = zeroGptResult;
+      console.log('Using ZeroGPT result as base');
     }
 
     // Iterate with Lovable AI until 100% human or max iterations
@@ -88,17 +122,28 @@ Deno.serve(async (req) => {
 
       const textToHumanize = humanizedText || sanitizedText;
       
-      const toneGuidance = tone === 'professional' 
-        ? `Maintain professional tone while still being authentically human:
+      let toneGuidance: string;
+      if (tone === 'professional') {
+        toneGuidance = `Maintain professional tone while being authentically human:
 - Use industry-appropriate language but avoid corporate jargon
 - Keep formality without sounding robotic
 - Include subtle personal insights that show expertise
-- Use measured, confident language`
-        : `Write in a casual, conversational tone:
+- Use measured, confident language`;
+      } else if (tone === 'preserve') {
+        toneGuidance = `PRESERVE the original writing style, tone, and voice:
+- Maintain the author's unique phrasing and word choices
+- Keep the original sentence structure and rhythm as much as possible
+- Preserve stylistic elements (fragments, run-ons, punctuation style)
+- Only make minimal edits for clarity while retaining authenticity
+- Do NOT simplify or alter the author's distinctive voice
+- Match the formality level of the original exactly`;
+      } else {
+        toneGuidance = `Write in a casual, conversational tone:
 - Use contractions freely (I'm, you're, it's)
 - Include colloquialisms and everyday expressions
 - Write like you're talking to a friend
 - Don't be afraid of sentence fragments or run-ons for emphasis`;
+      }
       
       const systemPrompt = `You are an elite text transformation specialist. Your ONLY job is to rewrite text so it reads as naturally human-written.
 

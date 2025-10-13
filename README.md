@@ -1,15 +1,22 @@
 # Miro Humanizer - AI Content Detection & Humanization Platform
 
-A sophisticated web application that detects AI-generated content and transforms it into natural, human-like text while maintaining the original meaning and quality.
+A sophisticated web application with multi-API verification that detects AI-generated content and transforms it into natural, human-like text while preserving original voice and meaning.
 
 ## 🚀 Features
 
 - **AI Content Detection**: Advanced detection using Google Gemini 2.5 Pro model
-- **Text Humanization**: Multi-iteration humanization targeting 90%+ human-like output
-- **Tone Customization**: Choose between casual and professional writing styles
-- **Iteration Tracking**: View the humanization process step-by-step
+- **Multi-API Humanization**: 
+  - Primary: ZeroGPT API with retry logic and timeout protection
+  - Fallback: Lovable AI for guaranteed processing
+  - Graceful degradation ensures continuous service
+- **Three Writing Tones**:
+  - **Casual**: Conversational and friendly
+  - **Professional**: Industry-appropriate and polished  
+  - **Preserve**: Maintains original voice and style with minimal edits
+- **Iteration Tracking**: View the humanization process step-by-step (up to 3 iterations)
 - **Secure Authentication**: Built-in user authentication and data protection
-- **Real-time Analysis**: Instant feedback on content authenticity
+- **Real-time Analysis**: Instant feedback on content authenticity (90%+ target)
+- **Comprehensive Security**: Input validation, rate limiting, API timeout protection
 
 ## 🏗️ Technology Stack
 
@@ -119,7 +126,7 @@ Transforms AI-detected text into natural, human-like content.
     aiRefined: number,
     humanWritten: number
   },
-  tone?: 'casual' | 'professional' // Default: 'casual'
+  tone?: 'casual' | 'professional' | 'preserve' // Default: 'casual'
 }
 ```
 
@@ -133,17 +140,26 @@ Transforms AI-detected text into natural, human-like content.
 **Features:**
 - Multi-iteration refinement (up to 3 iterations for reliability)
 - Targets 90%+ human-like score (optimal performance/quality balance)
-- Optional HumanizeAI API integration as primary method
-- Falls back to Lovable AI if HumanizeAI unavailable
-- Tone customization (casual/professional)
+- **ZeroGPT API integration** as primary method (with retry & timeout)
+- Falls back to Lovable AI if ZeroGPT unavailable
+- **Three tone options**: casual, professional, preserve
 - Validates output quality before returning
+- **Preserve mode**: Maintains original style with minimal edits
 
 **Iteration Process:**
-1. Initial humanization via HumanizeAI API (if `HUMANIZEAI_API_KEY` configured)
-2. Iterative refinement using Google Gemini 2.5 Pro
+1. Initial humanization via **ZeroGPT API** (if `ZEROGPT_API_KEY` configured)
+   - 3 retry attempts with exponential backoff
+   - 15-second timeout per request
+   - Gracefully falls back on failure
+2. Iterative refinement using Google Gemini 2.5 Pro (Lovable AI)
 3. Detection after each iteration to measure progress
-4. Stops when 90%+ human score achieved OR max iterations reached
+4. Stops when 90%+ human score achieved OR max iterations (3) reached
 5. Returns best result even if target not fully reached
+
+**Tone-Specific Behavior:**
+- **Casual**: Conversational, uses contractions, friendly language
+- **Professional**: Industry-appropriate, measured, no jargon
+- **Preserve**: Minimal edits, maintains original phrasing and rhythm
 
 **Error Handling:**
 - Continues iterations on detection failures
@@ -263,8 +279,11 @@ VITE_SUPABASE_PROJECT_ID       # Project identifier
 
 Configured via Lovable Cloud secrets management:
 
-- `LOVABLE_API_KEY`: Auto-configured for Lovable AI Gateway access
-- `HUMANIZEAI_API_KEY`: Optional, for HumanizeAI.com integration (recommended for best results)
+- `LOVABLE_API_KEY`: Auto-configured for Lovable AI Gateway access (required)
+- `ZEROGPT_API_KEY`: Optional, for ZeroGPT API integration (recommended for best results)
+  - Get your key from [ZeroGPT](https://www.zerogpt.com/)
+  - Improves humanization quality
+  - Includes retry logic and timeout protection
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`: Auto-configured
 
 ## 📊 Performance Targets & Optimizations
@@ -335,7 +354,9 @@ Configured via Lovable Cloud secrets management:
 - Detection accuracy depends on AI model training data
 - Rate limits apply based on workspace plan
 - Guest access disabled for security (authentication required)
-- HumanizeAI API optional but recommended for best results
+- **ZeroGPT API** optional but recommended for best results
+- **Preserve mode** works best with well-written original text
+- API timeout set to 15 seconds for external calls
 
 ## 🛡️ Security Audit Results
 
@@ -365,6 +386,9 @@ Configured via Lovable Cloud secrets management:
 - ✅ Text detection accuracy
 - ✅ Text humanization (casual tone)
 - ✅ Text humanization (professional tone)
+- ✅ Text humanization (preserve tone)
+- ✅ ZeroGPT API integration with fallback
+- ✅ API retry logic and timeout protection
 - ✅ Iteration history tracking
 - ✅ Results download
 - ✅ Session reset
