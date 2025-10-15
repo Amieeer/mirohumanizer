@@ -2,16 +2,30 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+export interface SentenceAnalysis {
+  text: string;
+  classification: 'Human' | 'Likely AI' | 'AI';
+  confidence: number;
+  reasoning: string;
+}
+
 export interface DetectionScore {
   aiWritten: number;
   aiRefined: number;
   humanWritten: number;
 }
 
+export interface DetectionResult {
+  overallScores: DetectionScore;
+  summary: string;
+  sentences: SentenceAnalysis[];
+  wordCount: number;
+}
+
 export const useAIDetection = () => {
   const [isLoading, setIsLoading] = useState(false);
 
-  const detectAI = async (text: string): Promise<DetectionScore | null> => {
+  const detectAI = async (text: string): Promise<DetectionResult | null> => {
     setIsLoading(true);
     
     try {
@@ -32,7 +46,7 @@ export const useAIDetection = () => {
         return null;
       }
 
-      return data as DetectionScore;
+      return data as DetectionResult;
     } catch (error) {
       console.error('Unexpected error:', error);
       toast.error('An unexpected error occurred');

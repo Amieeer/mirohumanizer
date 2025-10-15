@@ -9,13 +9,13 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAIDetection } from "@/hooks/useAIDetection";
 import { useHumanization } from "@/hooks/useHumanization";
-import type { DetectionScore } from "@/hooks/useAIDetection";
+import type { DetectionResult, DetectionScore } from "@/hooks/useAIDetection";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Palette } from "lucide-react";
 
 interface Iteration {
   text: string;
-  score: DetectionScore;
+  result: DetectionResult;
   timestamp: Date;
   round: number;
 }
@@ -27,16 +27,14 @@ const Detector = () => {
   
   const [inputText, setInputText] = useState("");
   const [outputText, setOutputText] = useState("");
-  const [currentScore, setCurrentScore] = useState<DetectionScore | null>(null);
+  const [currentResult, setCurrentResult] = useState<DetectionResult | null>(null);
   const [iterations, setIterations] = useState<Iteration[]>([]);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [tone, setTone] = useState<'casual' | 'professional' | 'preserve'>('casual');
 
   useEffect(() => {
     // Check if user is authenticated
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsAuthenticated(!!session);
       setAuthLoading(false);
       
       if (!session) {
@@ -45,8 +43,6 @@ const Detector = () => {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setIsAuthenticated(!!session);
-      
       if (!session) {
         navigate("/auth");
       }
@@ -69,12 +65,6 @@ const Detector = () => {
   };
 
   const analyzeText = async () => {
-    if (!isAuthenticated) {
-      toast.error("Please sign in to use the detector");
-      navigate("/auth");
-      return;
-    }
-    
     if (!inputText.trim()) {
       toast.error("Please enter text to analyze");
       return;
@@ -85,52 +75,47 @@ const Detector = () => {
       return;
     }
 
-    const score = await detectAI(inputText);
-    if (score) {
-      setCurrentScore(score);
+    const result = await detectAI(inputText);
+    if (result) {
+      setCurrentResult(result);
       setOutputText(inputText);
       setIterations([{
         text: inputText,
-        score,
+        result,
         timestamp: new Date(),
         round: 1
       }]);
-      toast.success("Analysis complete");
+      toast.success(`Analysis complete: ${result.summary}`);
     }
   };
 
   const humanize = async () => {
-    if (!isAuthenticated) {
-      toast.error("Please sign in to use the humanizer");
-      navigate("/auth");
-      return;
-    }
-    
     if (!outputText.trim()) {
       toast.error("No text to humanize");
       return;
     }
 
-    const humanizedText = await humanizeText(outputText, currentScore, tone);
+    const humanizedText = await humanizeText(outputText, currentResult?.overallScores || null, tone);
     if (humanizedText) {
       // Re-analyze the humanized text
-      const newScore = await detectAI(humanizedText);
-      if (newScore) {
-        setCurrentScore(newScore);
+      const newResult = await detectAI(humanizedText);
+      if (newResult) {
+        setCurrentResult(newResult);
         setOutputText(humanizedText);
         setIterations(prev => [...prev, {
           text: humanizedText,
-          score: newScore,
+          result: newResult,
           timestamp: new Date(),
           round: prev.length + 1
         }]);
         
-        if (newScore.humanWritten >= 90) {
-          toast.success(`🎉 Excellent! Text is ${newScore.humanWritten}% human!`);
-        } else if (newScore.humanWritten >= 80) {
-          toast.success(`Great progress! Text is ${newScore.humanWritten}% human.`);
+        const humanScore = newResult.overallScores.humanWritten;
+        if (humanScore >= 90) {
+          toast.success(`🎉 Excellent! Text is ${humanScore}% human!`);
+        } else if (humanScore >= 80) {
+          toast.success(`Great progress! Text is ${humanScore}% human.`);
         } else {
-          toast.info(`Text is ${newScore.humanWritten}% human. Continue refining for better results.`);
+          toast.info(`Text is ${humanScore}% human. Continue refining for better results.`);
         }
       }
     }
@@ -147,11 +132,20 @@ Final Text:
 ${outputText}
 
 Detection Scores:
-- AI Written: ${currentScore?.aiWritten}%
-- AI Refined: ${currentScore?.aiRefined}%
-- Human Written: ${currentScore?.humanWritten}%
+- AI Written: ${currentResult?.overallScores.aiWritten}%
+- AI Refined: ${currentResult?.overallScores.aiRefined}%
+- Human Written: ${currentResult?.overallScores.humanWritten}%
+
+Summary: ${currentResult?.summary || 'N/A'}
+
+Word Count: ${currentResult?.wordCount || 0}
 
 Total Iterations: ${iterations.length}
+
+Sentence-Level Analysis:
+${currentResult?.sentences.map((s, i) => 
+  `${i + 1}. [${s.classification}] (${(s.confidence * 100).toFixed(0)}% confidence) - ${s.reasoning}\n   "${s.text}"`
+).join('\n\n') || 'N/A'}
 `;
 
     const blob = new Blob([content], { type: "text/plain" });
@@ -167,7 +161,7 @@ Total Iterations: ${iterations.length}
   const reset = () => {
     setInputText("");
     setOutputText("");
-    setCurrentScore(null);
+    setCurrentResult(null);
     setIterations([]);
     toast.info("Session reset");
   };
@@ -195,16 +189,10 @@ Total Iterations: ${iterations.length}
               </div>
               <h1 className="text-xl font-bold">Miro Write</h1>
             </div>
-            {isAuthenticated ? (
-              <Button variant="ghost" size="sm" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            ) : (
-              <Button variant="ghost" size="sm" onClick={() => navigate("/auth")}>
-                Sign In
-              </Button>
-            )}
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
           </div>
         </div>
       </header>
@@ -224,7 +212,7 @@ Total Iterations: ${iterations.length}
             <div className="mt-4 flex gap-2">
               <Button
                 onClick={analyzeText}
-                disabled={isAnalyzing || !inputText.trim() || !isAuthenticated}
+                disabled={isAnalyzing || !inputText.trim()}
                 className="flex-1"
                 aria-label="Analyze text for AI detection"
               >
@@ -239,35 +227,39 @@ Total Iterations: ${iterations.length}
           {/* Output Panel */}
           <div className="flex flex-col gap-6">
             {/* Detection Scores */}
-            {currentScore && (
+            {currentResult && (
               <Card className="p-6">
                 <h2 className="text-lg font-semibold mb-4">Detection Results</h2>
+                
+                {/* Summary */}
+                <p className="text-sm text-muted-foreground mb-4 italic">"{currentResult.summary}"</p>
+                
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between text-sm mb-2">
                       <span>AI Written</span>
-                      <span className="font-semibold text-destructive">{currentScore.aiWritten}%</span>
+                      <span className="font-semibold text-destructive">{currentResult.overallScores.aiWritten}%</span>
                     </div>
-                    <Progress value={currentScore.aiWritten} className="bg-muted [&>div]:bg-destructive" />
+                    <Progress value={currentResult.overallScores.aiWritten} className="bg-muted [&>div]:bg-destructive" />
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-2">
                       <span>AI Refined</span>
-                      <span className="font-semibold text-warning">{currentScore.aiRefined}%</span>
+                      <span className="font-semibold text-warning">{currentResult.overallScores.aiRefined}%</span>
                     </div>
-                    <Progress value={currentScore.aiRefined} className="bg-muted [&>div]:bg-warning" />
+                    <Progress value={currentResult.overallScores.aiRefined} className="bg-muted [&>div]:bg-warning" />
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-2">
                       <span>Human Written</span>
-                      <span className="font-semibold text-success">{currentScore.humanWritten}%</span>
+                      <span className="font-semibold text-success">{currentResult.overallScores.humanWritten}%</span>
                     </div>
-                    <Progress value={currentScore.humanWritten} className="bg-muted [&>div]:bg-success" />
+                    <Progress value={currentResult.overallScores.humanWritten} className="bg-muted [&>div]:bg-success" />
                   </div>
                   <div className="pt-2 border-t border-border">
                     <div className="flex justify-between text-sm font-medium">
                       <span>Overall AI Detection</span>
-                      <span className="text-destructive">{currentScore.aiWritten + currentScore.aiRefined}%</span>
+                      <span className="text-destructive">{currentResult.overallScores.aiWritten + currentResult.overallScores.aiRefined}%</span>
                     </div>
                   </div>
                 </div>
@@ -294,7 +286,7 @@ Total Iterations: ${iterations.length}
                   <div className="flex gap-2">
                     <Button
                       onClick={humanize}
-                      disabled={isHumanizing || !isAuthenticated}
+                      disabled={isHumanizing}
                       className="flex-1 bg-gradient-to-r from-primary to-accent"
                       aria-label="Humanize text to sound more natural"
                     >
@@ -308,15 +300,49 @@ Total Iterations: ${iterations.length}
               </Card>
             )}
 
-            {/* Output Text */}
+            {/* Output Text with Sentence Highlighting */}
             <Card className="p-6 flex-1 flex flex-col">
-              <h2 className="text-lg font-semibold mb-4">Refined Output</h2>
-              <Textarea
-                placeholder="Results will appear here..."
-                className="flex-1 min-h-[250px] resize-none"
-                value={outputText}
-                readOnly
-              />
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Refined Output</h2>
+                {currentResult && (
+                  <span className="text-xs text-muted-foreground">
+                    {currentResult.wordCount} words • {currentResult.sentences.length} sentences
+                  </span>
+                )}
+              </div>
+              
+              {currentResult ? (
+                <div className="flex-1 min-h-[250px] p-3 border rounded-md bg-muted/30 overflow-auto">
+                  <div className="space-y-2 leading-relaxed">
+                    {currentResult.sentences.map((sentence, idx) => {
+                      const bgClass = 
+                        sentence.classification === 'AI' ? 'bg-destructive/20 border-l-4 border-destructive' :
+                        sentence.classification === 'Likely AI' ? 'bg-warning/20 border-l-4 border-warning' :
+                        'bg-success/10 border-l-4 border-success';
+                      
+                      return (
+                        <div key={idx} className={`px-3 py-2 rounded ${bgClass} group cursor-help`}>
+                          <span className="text-sm">{sentence.text}</span>
+                          <div className="mt-1 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="font-semibold">{sentence.classification}</span>
+                            {' • '}
+                            {(sentence.confidence * 100).toFixed(0)}% confidence
+                            {' • '}
+                            {sentence.reasoning}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <Textarea
+                  placeholder="Results will appear here..."
+                  className="flex-1 min-h-[250px] resize-none"
+                  value={outputText}
+                  readOnly
+                />
+              )}
             </Card>
 
             {/* Iteration History */}
@@ -328,9 +354,9 @@ Total Iterations: ${iterations.length}
                     <div key={idx} className="flex items-center justify-between text-sm py-2 border-b border-border last:border-0">
                       <span className="text-muted-foreground">Round {iter.round}</span>
                       <div className="flex gap-3 text-xs">
-                        <span className="text-destructive">{iter.score.aiWritten}% AI</span>
-                        <span className="text-warning">{iter.score.aiRefined}% Refined</span>
-                        <span className="text-success">{iter.score.humanWritten}% Human</span>
+                        <span className="text-destructive">{iter.result.overallScores.aiWritten}% AI</span>
+                        <span className="text-warning">{iter.result.overallScores.aiRefined}% Refined</span>
+                        <span className="text-success">{iter.result.overallScores.humanWritten}% Human</span>
                       </div>
                     </div>
                   ))}
