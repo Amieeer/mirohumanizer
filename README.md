@@ -22,7 +22,7 @@ A sophisticated web application with multi-API verification that detects AI-gene
 
 - **Frontend**: React 18, TypeScript, Vite
 - **UI Framework**: Tailwind CSS, shadcn-ui components
-- **Backend**: Lovable Cloud (Supabase) with Edge Functions
+- **Backend**: Supabase
 - **AI Models**: Google Gemini 2.5 Pro (via Lovable AI Gateway)
 - **Authentication**: Supabase Auth with email/password
 - **Database**: PostgreSQL with Row-Level Security
@@ -37,8 +37,8 @@ A sophisticated web application with multi-API verification that detects AI-gene
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd miro-humanizer
+git clone (https://github.com/Amieeer/mirohumanize
+cd 
 ```
 
 2. Install dependencies:
@@ -451,29 +451,22 @@ This project uses the following technologies:
 **"Rate limit exceeded"**
 - Solution: Wait a few minutes and try again, or upgrade plan
 
-**"AI credits depleted"**
-- Solution: Add credits to your Lovable workspace
 
 **"Failed to humanize text"**
 - Solution: Check console logs, ensure text is < 50,000 characters
 
 ### Debugging
 1. Check browser console for detailed error messages
-2. Review edge function logs in Lovable Cloud backend
-3. Ensure authentication is working correctly
-4. Verify API credits are available
-5. Check network tab for API response codes
+2. Ensure authentication is working correctly
+3. Verify API credits are available
+4. Check network tab for API response codes
 
 ### Getting Help
 - Review this documentation thoroughly
-- Check [Lovable Documentation](https://docs.lovable.dev)
 - Review [Supabase Documentation](https://supabase.com/docs)
 - Contact support if issues persist
 
 ## 🔗 Additional Resources
-
-- [Lovable Documentation](https://docs.lovable.dev)
-- [Lovable AI Features](https://docs.lovable.dev/features/ai)
 - [Supabase Documentation](https://supabase.com/docs)
 - [React Documentation](https://react.dev)
 - [Tailwind CSS Documentation](https://tailwindcss.com/docs)
