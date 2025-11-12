@@ -23,14 +23,13 @@ A sophisticated web application with multi-API verification that detects AI-gene
 - **Frontend**: React 18, TypeScript, Vite
 - **UI Framework**: Tailwind CSS, shadcn-ui components
 - **Backend**: Supabase
-- **AI Models**: Google Gemini 2.5 Pro (via Lovable AI Gateway)
+- **AI Models**: Google Gemini 2.5 Pro 
 - **Authentication**: Supabase Auth with email/password
 - **Database**: PostgreSQL with Row-Level Security
 
 ## 📋 Prerequisites
 
 - Node.js 18+ or Bun
-- Lovable Cloud account (for backend services)
 - Modern web browser
 
 ## 🔧 Installation
