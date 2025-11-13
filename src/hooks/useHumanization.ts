@@ -43,3 +43,4 @@ export const useHumanization = () => {
 
   return { humanizeText, isLoading };
 };
+
