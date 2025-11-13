@@ -58,3 +58,4 @@ export const useAIDetection = () => {
 
   return { detectAI, isLoading };
 };
+
