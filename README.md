@@ -1,6 +1,6 @@
 # Miro Humanizer - AI Content Detection & Humanization Platform
 
-A sophisticated web application with multi-API verification that detects AI-generated content and transforms it into natural, human-like text while preserving original voice and meaning.
+A web application with multi-API verification that detects AI-generated content and transforms it into natural, human-like text while preserving original voice and meaning.
 
 ## 🚀 Features
 
@@ -241,16 +241,6 @@ Logs API interactions for debugging and monitoring.
 - System can insert logs (for edge functions)
 - **No updates or deletes** (immutable audit integrity)
 
-### Security Improvements Applied
-
-**Critical Fixes Implemented:**
-1. ✅ API call logs now private per user
-2. ✅ Documents with NULL user_id blocked
-3. ✅ Iterations with NULL user_id blocked
-4. ✅ Leaked password protection enabled
-5. ✅ All tables enforce user ownership
-6. ✅ Audit trails protected (no modifications/deletions)
-7. ✅ Profile deletion prevented
 
 ## 🎨 UI Components
 
@@ -357,16 +347,6 @@ Configured via Lovable Cloud secrets management:
 - **Preserve mode** works best with well-written original text
 - API timeout set to 15 seconds for external calls
 
-## 🛡️ Security Audit Results
-
-### ✅ Security Issues Fixed
-1. API call logs are now private per user
-2. Documents require user ownership (no NULL user_id)
-3. Iterations require user ownership (no NULL user_id)
-4. Leaked password protection enabled
-5. Authentication required for all features
-6. Audit trails protected (immutable logs and iterations)
-7. Profile deletion prevented
 
 ### 🔒 Security Best Practices
 - Never expose `SUPABASE_SERVICE_ROLE_KEY` in client code
